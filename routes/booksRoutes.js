@@ -1,15 +1,21 @@
 import express from 'express'
+import Book from "../models/BookModel.js";
+import {addBook, deleteBook, getBooks, updateBook} from "../controller/booksController.js";
 
 const router = express.Router()
 
-router.get('/about', (req, res) => {
-    res.status(200).json({ msg: 'Hello World!' });
-})
+// Get all books route
+router.get('/', getBooks)
+
+// All new book route
+router.post('/', addBook)
+
+// Update book route
+router.put('/:id', updateBook)
+
+// Delete book route
+router.delete('/:id', deleteBook)
 
 
-router.post('/', (req, res) => {
-    console.log(req.body);
-    res.status(200).json({ msg: 'book request' })
-})
 
-export { router as booksRoutes }
+export {router as booksRoutes}
