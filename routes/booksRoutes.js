@@ -1,6 +1,6 @@
 import express from 'express'
 
-import {addBook, deleteBook, getBooks, getUserBooks, updateBook} from "../controller/booksController.js";
+import {addBook, deleteBook, getBooks, getUserBooks, searchBook, updateBook} from "../controller/booksController.js";
 import auth from "../middlewares/auth.js";
 
 const router = express.Router()
@@ -19,6 +19,9 @@ router.put('/:id', auth,  updateBook)
 
 // Delete book route
 router.delete('/:id', auth, deleteBook)
+
+// Search Book route
+router.get('/search', searchBook)
 
 
 

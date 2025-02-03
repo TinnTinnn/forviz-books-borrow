@@ -122,5 +122,45 @@ const deleteBook = async (req, res) => {
     }
 }
 
+/*************************************   Search Book   ******************************************/
+const searchBook = async (req, res) => {
+    try {
+        //  Grab the data from request body
+        let {title, author, category} = req.query;
 
-export {getBooks, getUserBooks, addBook, deleteBook, updateBook};
+        // Trim whitespace หากมี
+        title = title ? title.trim() : title;
+        author = author ? author.trim() : author;
+        category = category ? category.trim() : category;
+
+
+        // Create dynamic filter and add any key that have value
+        const filter = {};
+
+        if (title) {
+            filter.title = { $regex: title, $options: 'i' };
+        }
+        if (author) {
+            filter.author = { $regex: author, $options: 'i' };
+        }
+        if (category) {
+            filter.category = { $regex: category, $options: 'i' };
+        }
+
+        // Find book with filter that created and sort by created at
+        const books = await Book.find(filter).sort({ createdAt: "desc" });
+
+        //  don't match any book will return res and msg
+        if (books.length === 0) {
+            return res.status(200).json({message: "No books found matching."})
+        }
+
+        res.status(200).json({ books})
+
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
+
+}
+
+export {getBooks, getUserBooks, addBook, deleteBook, updateBook, searchBook};
