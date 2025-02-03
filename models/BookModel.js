@@ -17,7 +17,22 @@ const BookSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-    }
+    },
+    totalCopies: {
+        type: Number,
+        required: true,
+        default: '1',
+    },
+    availableCopies: {
+        type: Number,
+        required: true,
+        default: '1',
+    },
+    borrowCount: {
+        type: Number,
+        required: true,
+        default: '0',
+    },
 }, { timestamps: true });
 
 const Book = mongoose.model("Book", BookSchema);
