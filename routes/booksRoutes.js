@@ -1,6 +1,15 @@
 import express from 'express'
 
-import {addBook, deleteBook, getBooks, getUserBooks, searchBook, updateBook} from "../controller/booksController.js";
+import {
+    addBook,
+    borrowBook,
+    deleteBook,
+    getBooks, getMostBorrowedBooks,
+    getUserBooks,
+    returnBook,
+    searchBook,
+    updateBook
+} from "../controller/booksController.js";
 import auth from "../middlewares/auth.js";
 
 const router = express.Router()
@@ -22,6 +31,16 @@ router.delete('/:id', auth, deleteBook)
 
 // Search Book route
 router.get('/search', searchBook)
+
+// Borrow Book route
+router.post('/borrow/:id', auth, borrowBook)
+
+// Return Book route
+router.post('/return/:id', auth, returnBook)
+
+// Most Borrowed route
+router.get('/most-borrowed', getMostBorrowedBooks);
+
 
 
 

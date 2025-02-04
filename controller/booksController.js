@@ -37,7 +37,7 @@ const getUserBooks = async (req, res) => {
 const addBook = async (req, res) => {
 
     //  Grab the data from request body
-    const {title, author, category, totalCopies} = req.body;
+    const {title, author, category, totalBooks} = req.body;
 
     // Check the fields are not empty
     if (!title || !author || !category) {
@@ -53,8 +53,8 @@ const addBook = async (req, res) => {
             title,
             author,
             category,
-            totalCopies: totalCopies || 1,  // receive value from req.body or set default to 1
-            availableCopies: totalCopies || 1, // set value availableCopies same as totalCopies
+            totalBooks: totalBooks || 1,  // receive value from req.body or set default to 1
+            availableBooks: totalBooks || 1, // set value availableBooks same as totalBooks
         })
 
         res.status(200).json({success: 'book create successfully', book})
@@ -67,12 +67,12 @@ const addBook = async (req, res) => {
 /*************************************   Update Book   ******************************************/
 const updateBook = async (req, res) => {
     //  Grab the data from request body
-    const {title, author, category, totalCopies, availableCopies, } = req.body;
+    const {title, author, category, totalBooks } = req.body;
 
-    // // Check the fields are not empty
-    // if (!title || !author || !category) {
-    //     return res.status(400).json({error: 'Title, author, and category are required'});
-    // }
+    // Check the fields are not empty
+    if (!title || !author || !category || totalBooks === undefined) {
+        return res.status(400).json({error: 'All fields are required'});
+    }
 
     // Check the ID is valid type
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -92,35 +92,24 @@ const updateBook = async (req, res) => {
             return res.status(401).json({error: 'Not authorized'})
         }
 
-        // Verify value totalCopies and availableCopies
-        if (totalCopies !== undefined) {
-            if (totalCopies < (book.totalCopies - book.availableCopies)) {
-                return res.status(400).json({
-                    error: 'Total copies cannot be less than the number of borrowed copies.'
-                });
-            }
-        }
-
-        if (availableCopies !== undefined) {
-            if (availableCopies < 0 || availableCopies > (totalCopies || book.totalCopies)) {
-                return res.status(400).json({
-                    error: 'Available copies must be between 0 and total copies.'
-                })
-            }
+        // Check totalBooks not less than borrowCount
+        const borrowedBooks = book.totalBooks - book.availableBooks;
+        if (totalBooks < borrowedBooks) {
+            return res.status(400).json({
+                error: `Cannot set totalBooks less than the number of borrowed books (${borrowedBooks}).`
+            });
         }
 
         // Update book
-        const updatedBook = await Book.findByIdAndUpdate(
-            req.params.id,
-            {
-                title: title || book.title,
-                author: author || book.author,
-                category: category || book.category,
-                totalCopies: totalCopies !== undefined ? totalCopies : book.totalCopies,
-                availableCopies: availableCopies !== undefined ? availableCopies : book.availableCopies
-            },
-            { new: true } // return new data after update
-        )
+        book.title = title || book.title;
+        book.author = author || book.author;
+        book.category = category || book.category;
+        book.availableBooks += (totalBooks - book.totalBooks); // เพิ่ม/ลดความแตกต่าง
+        book.totalBooks = totalBooks;
+
+        await book.save();
+
+        // Send response
         res.status(200).json({success: 'book updated successfully'})
 
     } catch (error) {
@@ -198,24 +187,92 @@ const searchBook = async (req, res) => {
 
 /*************************************   Borrow Book   ******************************************/
 const borrowBook = async (req, res) => {
+    const { id  } = req.params;
+
+    // Check the ID is valid type
+    if (!mongoose.Types.ObjectId.isValid(id )) {
+        return res.status(400).json({error: 'Invalid book id.'})
+    }
+
     try {
-        //  Check ID is ObjectID
-        const {_id} = req.params;
-        if (!_id || !mongoose.Types.ObjectId.isValid(req.params._id)) {
-            return res.status(400).json({error: 'Invalid book id.'})
-        }
         // Find book from DB
-        const book = await Book.findById(req.params.id);
+        const book = await Book.findById(id );
         if (!book) {
             return res.status(400).json({error: 'Book not found'})
         }
 
         // Check the book available for borrow ?
+        if (book.availableBooks <= 0) {
+            return res.status(400).json({error: 'No available book to borrow..'})
+        }
+
+        // Update borrow status
+        book.availableBooks -= 1;
+        book.borrowCount += 1;
+        await book.save();
+
+        // Send response
+        res.status(200).json({success: 'book borrowed successfully', book})
 
     } catch (error) {
-
+        return res.status(500).json({error: error.message});
     }
 }
+
+/*************************************   Return Book   ******************************************/
+const returnBook = async (req, res) => {
+    const { id  } = req.params;
+
+    // Check the ID is valid type
+    if (!mongoose.Types.ObjectId.isValid(id )) {
+        return res.status(400).json({error: 'Invalid book id.'})
+    }
+    
+    try {
+        const book = await Book.findById(id );
+        if (!book) {
+            return res.status(400).json({error: 'Book not found'})
+        }
+        
+        // Check Book has borrowed ?
+        if (book.availableBooks >= book.totalBooks) {
+            return res.status(400).json({success: 'All book are already return'})
+        }
+
+        // Update borrow status
+        book.availableBooks += 1;
+        await book.save();
+
+        // Send response
+        res.status(200).json({success: 'book returned successfully', book})
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
+    
+}
+
+/*************************************   Most Borrowed  Books   ******************************************/
+const getMostBorrowedBooks = async (req, res) => {
+    try {
+        // Find books sorted by borrowCount in descending order, limit the number of results to 5
+        const mostBorrowedBooks = await Book.find()
+            .sort({ borrowCount: -1 }) // Sort by borrowCOunt in desc
+            .limit(5); // Limit to top 5 most borrowed books
+
+        if(mostBorrowedBooks.length === 0 ) {
+            return res.status(200).json({error: 'No books found matching.'})
+        }
+
+        res.status(200).json({ mostBorrowedBooks})
+
+    } catch (error) {
+        res.status(500).json({error: error.message});
+    }
+}
+
+
+
+
 
 
 
@@ -223,6 +280,10 @@ const borrowBook = async (req, res) => {
 /*************************************
 
  - Have job with borrowCount When update
+     - ไม่ต้องแล้วแก้แล้ว เพราะ borrowCount จะนับก็ต่อเมื่อ ถูกเรียกใช้ตอนฟังค์ชั่น ยืมหนังสือ คืนหนังสือเท่านั่น
+     - ส่วนการแก้ไขหนังสือ อัพเดทหนังสือไม่เกี่ยวข้องกัน เพราะส่วนนั้น จะทำเฉพาะรายละเอียดของหนังสือเท่านั้น ไม่เกี่ยวกับการสถิติการยืมคืน
+     - แต่ท้ายที่สุด ได้ทำให้เพิ่มการแก้ไข totalBook ได้ เพราะผู้ใช้อาจเกิดความผิดพลาดขณะกรอกข้อมูลตัวเลขได้ และควรจะแก้ไขส่วนนี้ได้
+     - ในส่วนของ จำนวนคงเหลือในการยืม และ สถิติการยืมมากที่สุด ให้ Logic จัดการ เมื่อมีการเรียกใช้ API ยืม และ คืน โดย User ไม่ต้องไปวุ่นวาย
  - Have to check Delete method more after add some parameter in Book Model
  - Function about Borrow not done yet
 
@@ -231,6 +292,6 @@ const borrowBook = async (req, res) => {
 
 
 
-export {getBooks, getUserBooks, addBook, deleteBook, updateBook, searchBook};
+export {getBooks, getUserBooks, addBook, deleteBook, updateBook, searchBook, borrowBook, returnBook, getMostBorrowedBooks};
 
 

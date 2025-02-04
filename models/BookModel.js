@@ -18,20 +18,20 @@ const BookSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    totalCopies: {
+    totalBooks: {
         type: Number,
         required: true,
-        default: '1',
+        default: 1,
     },
-    availableCopies: {
+    availableBooks: {
         type: Number,
         required: true,
-        default: '1',
+        default: 1,
     },
     borrowCount: {
         type: Number,
         required: true,
-        default: '0',
+        default: 0,
     },
 }, { timestamps: true });
 
